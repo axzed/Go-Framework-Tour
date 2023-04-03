@@ -1,0 +1,35 @@
+version: '3.9'
+services:
+  userapp-redis:
+    image: redis:6.0-alpine
+    container_name: userapp-redis
+    restart: always
+    command: redis-server --requirepass abc
+    networks:
+      - userapp
+    ports:
+    - 6379:6379
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+  userapp-mysql:
+    restart: always
+    image: mysql:5.7
+    container_name: userapp-mysql
+    volumes:
+      - type: bind
+        source: ./scripts/mysql/
+        target: /docker-entrypoint-initdb.d/
+    networks:
+      - userapp
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    healthcheck:
+      test: [ "CMD", "mysqladmin" ,"ping", "-h", "localhost" ]
+      timeout: 2s
+      retries: 30
+    ports:
+      - 3306:3306
+
+networks:
+  userapp:
+    name: userapp

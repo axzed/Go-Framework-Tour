@@ -1,0 +1,25 @@
+package {{ .Package }}
+
+import (
+    "gitee.com/geektime-geekbang/geektime-go/orm"
+{{range $idx, $import := .Imports }}
+    {{$import}}
+{{end -}}
+)
+{{- $ops := .Ops -}}
+{{range $i, $type := .Types }}
+
+const (
+{{- range $j, $field := .Fields}}
+    {{$type.Name }}{{$field.Name}} = "{{$field.Name}}"
+{{- end}}
+)
+
+{{range $j, $field := .Fields}}
+{{- range $k, $op := $ops}}
+func {{$type.Name }}{{$field.Name}}{{$op}}(val {{$field.Type}}) orm.Predicate {
+    return orm.C("{{$field.Name}}").{{$op}}(val)
+}
+{{end}}
+{{- end}}
+{{- end}}

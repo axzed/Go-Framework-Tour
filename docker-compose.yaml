@@ -1,0 +1,86 @@
+# 注意这会启动我们这个训练营里面用到的所有的第三方依赖，所以会很慢
+# 注意这会启动我们这个训练营里面用到的所有的第三方依赖，所以会很慢
+# 而且会非常消耗性能。
+# 如果你的电脑性能比较差，那么启动的时候可能会引起卡顿，或者风扇疯狂咆哮
+# 所以你可以考虑说将部分代码复制出去另外一个 docker-compose 文件
+
+services:
+  redis:
+    image: docker.io/bitnami/redis:7.0
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - '6379:6379'
+#    volumes:
+#      - 'redis_data:/bitnami/redis/data'
+
+  # MySQL8
+  mysql8:
+    image: mysql:8.0.29
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./script/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "13306:3306"
+
+
+  # Jaeger
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268"
+      - "14250"
+
+  # Zipkin
+  zipkin-all-in-one:
+    image: openzipkin/zipkin:latest
+    ports:
+      - "19411:9411"
+
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+  etcd:
+    image: 'bitnami/etcd:latest'
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+    ports:
+#      客户端通信接口
+      - 2379:2379
+#      集群节点通信端口
+      - 2380:2380
+  etcdkeeper:
+    image: evildecay/etcdkeeper:latest
+    container_name: "etcdkeeper"
+#    environment:
+#      HOST: "0.0.0.0"
+    ports:
+      - 12000:8080
+    depends_on:
+      - etcd
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.55.0
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "1888:1888"   # pprof 扩展端口
+      - "8888:8888"   # otel 暴露的 Prometheus 端口
+      - "8889:8889"   # Prometheus exporter 端口
+      - "13133:13133" # 健康检查扩展
+      - "4317:4317"   # OTLP gRPC 接收器端口
+      - "4318:4318"   # OTLP http 接收器端口
+      - "55679:55679" # zpages 扩展端口
+    depends_on:
+      - jaeger-all-in-one
+      - zipkin-all-in-one
